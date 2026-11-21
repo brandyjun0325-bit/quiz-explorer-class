@@ -407,6 +407,16 @@ textarea.text-in{resize:vertical}
 
 @media (max-width:560px){.game-list .quiz-card{grid-template-columns:88px 1fr}.game-list .quiz-card img{width:88px}.game-list .quiz-card>.btn{grid-column:1/-1;justify-self:stretch;text-align:center}}
 
+/* 구글 로그인 */
+.g-area{display:grid;justify-items:center;gap:6px;margin:6px 0 2px}
+.g-btn{min-height:44px;width:100%;display:flex;justify-content:center;align-items:center}
+.or-line{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:14px;margin:8px 0 4px}
+.or-line::before,.or-line::after{content:'';flex:1;height:1px;background:var(--line)}
+.small.center,.muted.center{text-align:center}
+.acct-btns{display:inline-flex;gap:6px;flex-wrap:wrap}
+.login-card a{color:var(--teal-d)}
+.home-foot{text-align:center;margin:4px 0 0;font-size:13px}.home-foot a{color:rgba(255,255,255,.92);background:rgba(20,40,50,.45);padding:3px 10px;border-radius:99px;text-decoration:none}
+
 </style>
 </head>
 <body>
@@ -425,6 +435,7 @@ textarea.text-in{resize:vertical}
         </div>
       </div>
       <div class="home-maps" id="home-maps" aria-label="고를 수 있는 맵"></div>
+      <p class="home-foot"><a href="privacy.html" target="_blank" rel="noopener">개인정보 처리방침</a></p>
     </div>
   </section>
   <section id="scr-slogin" class="screen" aria-label="학생 입장"></section>
@@ -1171,7 +1182,7 @@ const ERRMSG={AUTH:'로그인이 끝났어요. 다시 로그인해 주세요.',B
   LOGIN_TAKEN:'이미 쓰고 있는 아이디예요. 다른 아이디를 써 주세요.',BAD_LOGIN_FORMAT:'아이디는 영어 소문자·숫자·_ 로 3~20자로 써 주세요.',WEAK_PW:'비밀번호는 6자 이상으로 해 주세요.',NO_NAME:'이름을 써 주세요.',
   BAD_CLASS:'반 코드를 다시 확인해 주세요.',BAD_STUDENT:'그 번호의 학생이 없어요. 번호를 확인해 주세요.',BAD_PIN:'비밀번호가 맞지 않아요.',NOGAME:'게임을 찾을 수 없어요.',NOTPLAYING:'게임이 진행 중이 아니에요.',
   NO_MORE:'마지막 문제까지 다 냈어요.',NUM_TAKEN:'이미 있는 번호예요.',BAD_NUM:'번호는 1~99로 써 주세요.',TOO_MANY:'한 번에 60명까지 넣을 수 있어요.',BAD_QUESTIONS:'낼 문제가 없어요. 퀴즈의 출제 설정을 확인해 주세요.',
-  ENDED:'이미 끝난 게임이에요.',DONE_Q:'이미 푼 문제예요.',NOCLASS:'반을 찾을 수 없어요.',NOSTUDENT:'학생을 찾을 수 없어요.',BAD_DATA:'저장할 수 없는 퀴즈예요.',NET:'인터넷 연결을 확인해 주세요.'};
+  ENDED:'이미 끝난 게임이에요.',DONE_Q:'이미 푼 문제예요.',NOCLASS:'반을 찾을 수 없어요.',NOSTUDENT:'학생을 찾을 수 없어요.',BAD_DATA:'저장할 수 없는 퀴즈예요.',NET:'인터넷 연결을 확인해 주세요.',BAD_GOOGLE:'구글 로그인을 확인하지 못했어요. 다시 해 주세요.',GOOGLE_EMAIL:'이메일 인증이 끝난 구글 계정만 쓸 수 있어요.',GOOGLE_TAKEN:'이 구글 계정은 이미 다른 선생님 계정에 연결돼 있어요.',NO_PW:'구글로 가입한 계정은 비밀번호가 없어요. 구글로 로그인해 주세요.',SERVER:'서버에서 문제가 생겼어요. 잠시 뒤 다시 해 주세요.'};
 class ApiErr extends Error{constructor(code){super(code);this.code=code;}}
 async function api(fn,args){let r;try{r=await fetch(API_URL+'/rest/v1/rpc/'+fn,{method:'POST',headers:{apikey:SUPA_KEY,'Content-Type':'application/json'},body:JSON.stringify(args||{})});}catch(e){throw new ApiErr('NET');}
   const t=await r.text();let d=null;try{d=t?JSON.parse(t):null;}catch(e){}
@@ -1447,31 +1458,64 @@ async function openJoinModal(k){const qrBox=h('div',{class:'qr-box'},h('p',{clas
 /* =========================================================
    선생님 : 로그인 · 관리자 화면
    ========================================================= */
+/* 구글 로그인 (선생님) */
+const GOOGLE_CLIENT_ID='398152626239-gvl4lu6qg0j9rb9cd2cks0gcdlh3hffh.apps.googleusercontent.com';
+const FN_URL=(LOCAL?location.origin:SUPA_URL)+'/functions/v1';
+let GIS_PROMISE=null,gisInited=false,googleHandler=null;
+const gisReady=()=>!!(window.google&&google.accounts&&google.accounts.id);
+function loadGIS(){if(gisReady())return Promise.resolve(true);if(GIS_PROMISE)return GIS_PROMISE;
+  GIS_PROMISE=new Promise(res=>{const s=document.createElement('script');s.src='https://accounts.google.com/gsi/client';s.async=true;s.onload=()=>res(gisReady());s.onerror=()=>{GIS_PROMISE=null;res(false);};document.head.append(s);setTimeout(()=>res(gisReady()),8000);});return GIS_PROMISE;}
+function onGoogleCredential(resp){if(googleHandler)googleHandler(resp&&resp.credential);}
+window.onGoogleCredential=onGoogleCredential;
+async function renderGoogleButton(box,handler){googleHandler=handler;box.innerHTML='';box.append(h('p',{class:'muted small center'},'구글 로그인 버튼을 불러오는 중…'));
+  const ok=await loadGIS();if(!box.isConnected)return;box.innerHTML='';
+  if(!ok){box.append(h('p',{class:'muted small center'},'구글 로그인을 불러오지 못했어요. 학교 인터넷에서 구글 로그인이 막혀 있을 수 있어요. 아이디로 로그인해 주세요.'));return;}
+  if(!gisInited){google.accounts.id.initialize({client_id:GOOGLE_CLIENT_ID,callback:onGoogleCredential,auto_select:false,cancel_on_tap_outside:true,context:'signin',ux_mode:'popup'});gisInited=true;}
+  const w=Math.round(Math.min(360,Math.max(220,box.clientWidth||320)));
+  google.accounts.id.renderButton(box,{type:'standard',theme:'outline',size:'large',text:'continue_with',shape:'pill',logo_alignment:'center',width:w,locale:'ko'});}
+async function googleAuth(credential,linkToken){let r;try{r=await fetch(FN_URL+'/google-auth',{method:'POST',headers:{'Content-Type':'application/json',apikey:SUPA_KEY},body:JSON.stringify({credential:credential||'',link_token:linkToken||null})});}catch(e){throw new ApiErr('NET');}
+  let d=null;try{d=await r.json();}catch(e){}if(!r.ok||!d||d.error)throw new ApiErr((d&&d.error)||('HTTP'+r.status));return d;}
+function googleSignOut(){try{if(gisReady())google.accounts.id.disableAutoSelect();}catch(e){}}
 function openTLogin(){showScreen('tlogin');loadMap('village');const root=$('#scr-tlogin');root.innerHTML='';let mode='login';
-  const box=h('div',{class:'card login-card'});const paint=()=>{box.innerHTML='';
+  const gBtn=h('div',{class:'g-btn',id:'g-btn'}),gMsg=h('p',{class:'muted small center',role:'status'});
+  const box=h('div',{class:'id-login'});const card=h('div',{class:'card login-card'},h('div',{class:'eyebrow'},'선생님 관리자'),h('h2',null,'관리자 로그인 · 가입'),
+    h('div',{class:'g-area'},gBtn,gMsg,h('p',{class:'muted small center'},'처음이면 구글 계정으로 바로 가입돼요.')),h('div',{class:'or-line'},h('span',null,'또는 아이디로')),box,
+    h('p',{class:'muted small center'},h('a',{href:'privacy.html',target:'_blank',rel:'noopener'},'개인정보 처리방침')));
+  renderGoogleButton(gBtn,async cred=>{if(!cred)return;gMsg.textContent='구글 계정을 확인하고 있어요…';
+    try{const d=await googleAuth(cred);Auth.t=d;LS.set('qc_t',d);toast(d.created?'구글 계정으로 가입했어요. 반을 만들어 시작해 보세요!':'구글 계정으로 로그인했어요.',3);openDash('class');}
+    catch(e){gMsg.textContent='';toast(errText(e),4);}});
+  const paint=()=>{box.innerHTML='';
     const tabs=h('div',{class:'seg'},[['login','로그인'],['signup','처음이에요 (가입)']].map(([k,l])=>h('button',{class:'seg-btn'+(mode===k?' on t-ox':''),type:'button',onclick:()=>{mode=k;paint();}},l)));
     const nameIn=h('input',{id:'tl-name',class:'text-in',maxlength:30,autocomplete:'name',placeholder:'예: 김준수'}),idIn=h('input',{id:'tl-id',class:'text-in',maxlength:20,autocomplete:'username',autocapitalize:'none',spellcheck:'false',placeholder:'영어 소문자·숫자 3~20자'}),
       pwIn=h('input',{id:'tl-pw',class:'text-in',type:'password',autocomplete:mode==='login'?'current-password':'new-password',placeholder:'6자 이상'}),pw2=h('input',{id:'tl-pw2',class:'text-in',type:'password',autocomplete:'new-password',placeholder:'한 번 더'});
     const btn=h('button',{class:'btn primary big',type:'submit'},mode==='login'?'로그인':'가입하고 시작하기');
     box.append(h('form',{onsubmit:async e=>{e.preventDefault();btn.disabled=true;try{let d;if(mode==='login')d=await api('t_login',{p_login:idIn.value,p_pw:pwIn.value});else{if(pwIn.value!==pw2.value){toast('비밀번호 두 개가 서로 달라요.');return;}d=await api('t_signup',{p_login:idIn.value,p_name:nameIn.value,p_pw:pwIn.value});}
         Auth.t=d;LS.set('qc_t',d);openDash('class');}catch(err){toast(errText(err),3.5);}finally{btn.disabled=false;}}},
-      h('div',{class:'eyebrow'},'선생님 관리자'),h('h2',null,mode==='login'?'관리자 로그인':'관리자 계정 만들기'),tabs,
+      tabs,
       mode==='signup'?[h('label',{class:'field-label',for:'tl-name'},'선생님 이름 (학생 화면에는 보이지 않아요)'),nameIn]:null,h('label',{class:'field-label',for:'tl-id'},'아이디'),idIn,h('label',{class:'field-label',for:'tl-pw'},'비밀번호'),pwIn,
       mode==='signup'?[h('label',{class:'field-label',for:'tl-pw2'},'비밀번호 확인'),pw2]:null,
-      h('div',{class:'row-end'},h('button',{class:'btn ghost',type:'button',onclick:()=>showScreen('home')},'처음으로'),btn)));setTimeout(()=>{try{(mode==='signup'?nameIn:idIn).focus();}catch(e){}},40);};
-  paint();root.append(h('div',{class:'wrap narrow center-v'},box));}
+      h('div',{class:'row-end'},h('button',{class:'btn ghost',type:'button',onclick:()=>showScreen('home')},'처음으로'),btn)));};
+  paint();root.append(h('div',{class:'wrap narrow center-v'},card));}
 const D={tab:'class',classes:[],quizzes:[],classId:LS.get('qc_cls',null)};
 async function openDash(tab,opts){if(!Auth.t)return openTLogin();opts=opts||{};if(tab)D.tab=tab;showScreen('dash');loadMap('village');const root=$('#scr-dash');root.innerHTML='';
   const tabs=[['class','반 · 학생'],['quiz','퀴즈'],['game','게임 열기'],['records','기록']];
-  root.append(h('div',{class:'wrap'},h('header',{class:'page-head'},h('div',null,h('div',{class:'eyebrow'},'선생님 관리자'),h('h2',null,Auth.t.teacher.name+' 선생님')),h('span',{class:'grow'}),
-      h('button',{class:'btn ghost sm',type:'button',onclick:openPwModal},'비밀번호 바꾸기'),h('button',{class:'btn ghost sm',type:'button',onclick:async()=>{if(await askConfirm('로그아웃할까요?','로그아웃')){try{await api('logout',{p_token:Auth.t.token});}catch(e){}Auth.t=null;LS.set('qc_t',null);showScreen('home');}}},'로그아웃')),
+  root.append(h('div',{class:'wrap'},h('header',{class:'page-head'},h('div',null,h('div',{class:'eyebrow'},'선생님 관리자'),h('h2',null,Auth.t.teacher.name+' 선생님'),h('div',{class:'muted small',id:'acct-mail'},Auth.t.teacher.email||'')),h('span',{class:'grow'}),
+      h('span',{class:'acct-btns',id:'acct-btns'}),h('button',{class:'btn ghost sm',type:'button',onclick:async()=>{if(await askConfirm('로그아웃할까요?','로그아웃')){try{await api('logout',{p_token:Auth.t.token});}catch(e){}googleSignOut();Auth.t=null;LS.set('qc_t',null);showScreen('home');}}},'로그아웃')),
     h('nav',{class:'dash-tabs',role:'tablist'},tabs.map(([k,l])=>h('button',{class:'dash-tab'+(D.tab===k?' on':''),type:'button',role:'tab','aria-selected':D.tab===k?'true':'false',onclick:()=>openDash(k)},l))),h('div',{id:'dash-body'},h('p',{class:'muted'},'불러오는 중…'))));
-  try{const[c,q]=await Promise.all([tcall('t_classes'),tcall('t_quizzes')]);D.classes=c;D.quizzes=q;}catch(e){if(e.code!=='AUTH'){const b=$('#dash-body');if(b){b.innerHTML='';b.append(h('p',{class:'muted'},errText(e)));}}return;}
+  try{const[c,q,me]=await Promise.all([tcall('t_classes'),tcall('t_quizzes'),tcall('t_me')]);D.classes=c;D.quizzes=q;if(me&&Auth.t){Auth.t.teacher=Object.assign({},Auth.t.teacher,me);LS.set('qc_t',Auth.t);}fillAcct();}catch(e){if(e.code!=='AUTH'){const b=$('#dash-body');if(b){b.innerHTML='';b.append(h('p',{class:'muted'},errText(e)));}}return;}
   if(!D.classes.find(c=>c.id===D.classId))D.classId=D.classes[0]?D.classes[0].id:null;
   if(SCREEN!=='dash')return;const body=$('#dash-body');body.innerHTML='';
   if(D.tab==='class')renderClassTab(body);else if(D.tab==='quiz')renderQuizTab(body);else if(D.tab==='game')renderGameTab(body,opts);else renderRecordsTab(body);}
 function setClass(id){D.classId=id;LS.set('qc_cls',id);}
 function classSelect(onChange){if(!D.classes.length)return null;return h('select',{class:'sel big-sel',id:'cls-sel','aria-label':'반 고르기',onchange:e=>{setClass(e.target.value);onChange();}},D.classes.map(c=>h('option',{value:c.id,selected:c.id===D.classId},c.name+' ('+c.students+'명)')));}
+function fillAcct(){const box=$('#acct-btns');if(!box||!Auth.t)return;const t=Auth.t.teacher;box.innerHTML='';const mail=$('#acct-mail');if(mail)mail.textContent=t.google?('구글 계정 '+(t.email||'연결됨')):('아이디 '+t.login);
+  if(t.pw!==false)box.append(h('button',{class:'btn ghost sm',type:'button',onclick:openPwModal},'비밀번호 바꾸기'));
+  if(!t.google)box.append(h('button',{class:'btn ghost sm',type:'button',onclick:openLinkGoogle},'구글 계정 연결'));}
+function openLinkGoogle(){const gBtn=h('div',{class:'g-btn'}),msg=h('p',{class:'muted small center',role:'status'});
+  const m=openModal('구글 계정 연결',h('div',{class:'g-area'},h('p',null,'구글 계정을 연결해 두면 다음부터 아이디·비밀번호 없이 구글로 바로 로그인할 수 있어요. 지금 아이디와 비밀번호도 그대로 쓸 수 있어요.'),gBtn,msg),[h('button',{class:'btn ghost',type:'button',onclick:()=>m.close()},'닫기')],{noFocus:true});
+  renderGoogleButton(gBtn,async cred=>{if(!cred)return;msg.textContent='구글 계정을 확인하고 있어요…';
+    try{const d=await googleAuth(cred,Auth.t.token);Auth.t.teacher.google=true;Auth.t.teacher.email=d.email;LS.set('qc_t',Auth.t);m.close();toast('구글 계정을 연결했어요. 다음부터 구글로 로그인할 수 있어요.',3.5);fillAcct();}
+    catch(e){msg.textContent='';if(e.code==='AUTH'){m.close();Auth.t=null;LS.set('qc_t',null);toast(ERRMSG.AUTH,3);openTLogin();return;}toast(errText(e),4);}});}
 function openPwModal(){const a=h('input',{id:'pw-old',class:'text-in',type:'password',autocomplete:'current-password'}),b=h('input',{id:'pw-new',class:'text-in',type:'password',autocomplete:'new-password',placeholder:'6자 이상'});
   const m=openModal('비밀번호 바꾸기',h('div',null,h('label',{class:'field-label',for:'pw-old'},'지금 비밀번호'),a,h('label',{class:'field-label',for:'pw-new'},'새 비밀번호'),b),[h('button',{class:'btn ghost',type:'button',onclick:()=>m.close()},'취소'),h('button',{class:'btn primary',type:'button',onclick:async()=>{try{await tcall('t_password',{p_old:a.value,p_new:b.value});m.close();toast('비밀번호를 바꿨어요.');}catch(e){if(e.code!=='AUTH')toast(errText(e));}}},'바꾸기')]);}
 
