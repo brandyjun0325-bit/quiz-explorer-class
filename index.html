@@ -1630,10 +1630,10 @@ function bindInput(){
 async function boot(){CV=$('#cv');CX=CV.getContext('2d');resizeCanvas();bindInput();applyDpad();requestAnimationFrame(frame);renderHome();
   try{await Promise.race([document.fonts.ready.then(()=>Promise.all([document.fonts.load('30px Jua'),document.fonts.load('16px "Gowun Dodum"')])),sleep(2500)]);}catch(e){}
   loadMap('village');G.camSnap=true;
-  const qs=new URLSearchParams(location.search);const code=qs.get('c');if(code){history.replaceState(null,'',location.pathname);if(Auth.s&&Auth.s.class&&Auth.s.class.code===code.toUpperCase()){openLobby();return;}openSLogin(code);return;}
+  const qs=new URLSearchParams(location.search);if(qs.get('magicTalkBridge')==='1'){await window.MagicTalkExplorer.start();return;}const code=qs.get('c');if(code){history.replaceState(null,'',location.pathname);if(Auth.s&&Auth.s.class&&Auth.s.class.code===code.toUpperCase()){openLobby();return;}openSLogin(code);return;}
   if(SCREEN!=='home')return;if(Auth.s&&!Auth.t){try{const me=await api('s_me',{p_token:Auth.s.token});Auth.s.student=me.student;Auth.s.class=me.class;LS.set('qc_s',Auth.s);openLobby();}catch(e){if(e.code==='AUTH'){Auth.s=null;LS.set('qc_s',null);}}}}
-boot();
-
 </script>
+<script src="/magic-talk-bridge.js"></script>
+<script>boot();</script>
 </body>
 </html>
